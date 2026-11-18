@@ -1,0 +1,50 @@
+// Pravidla brány sloučení. Brána je čte vždy z hlavní větve, nikdy z větve PR:
+// úprava v PR začne platit až po sloučení, a protože soubor leží v .github/, sloučí se jen se štítkem
+// `schvaleno` od vlastníka.
+//
+// Komentáře smějí být jen na samostatných řádcích začínajících //.
+// Vzory cest: `*` = cokoli v rámci jedné složky, `**` = libovolná hloubka složek.
+{
+  // GitHub účty, jejichž štítek `schvaleno` brána bere jako souhlas. Vyplňte svůj login.
+  "vlastnici": ["VAS-GITHUB-LOGIN"],
+
+  // Vratné změny: co lze z webu sundat revertem i s následky (nic neodešlo, nic se nesmazalo,
+  // nic se nezaplatilo). Takový PR se samosloučí po lhůtě, pokud prošel review a nikdo nedal `stop`.
+  // Lhůta běží od prvního vyhodnocení aktuálního commitu; nový commit ji spustí znovu.
+  // Když PR mění soubory z více skupin, platí nejdelší lhůta.
+  "vratne": [
+    { "cesty": ["docs/**", "**/*.md"], "lhutaHodin": 0 },
+    { "cesty": ["tests/**", "test/**", "**/*.test.*"], "lhutaHodin": 0 },
+    { "cesty": ["src/**", "app/**", "components/**", "public/**", "styles/**"], "lhutaHodin": 24 }
+  ],
+
+  // Nevratné cesty mají přednost před vratnými. Cokoli, co není ve `vratne`, je nevratné tak jako tak;
+  // tento seznam slouží k výjimkám uvnitř vratných složek (např. src/** obsahuje i odesílání e-mailů).
+  "nevratne": [
+    ".github/**",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "MANIFEST.md",
+    "**/migrations/**",
+    "**/migrace/**",
+    "**/*.sql",
+    "**/.env*",
+    "package.json",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+    "src/**/email/**",
+    "src/**/platby/**",
+    "src/**/payments/**"
+  ],
+
+  // Nad tento počet změněných řádků (přidané + odebrané) se nesamoslučuje, rozhoduje vlastník.
+  "maxRadku": 400,
+
+  // Názvy kontrol (jobů CI), které musejí na aktuálním commitu skončit úspěchem. Vyplňte názvy svých
+  // testů tak, jak je GitHub ukazuje u PR, např. ["Testy"]. Prázdný seznam = brána testy nehlídá.
+  "pozadovaneKontroly": [],
+
+  // Jak brána slučuje: "squash", "merge" nebo "rebase".
+  "zpusobSlouceni": "squash"
+}

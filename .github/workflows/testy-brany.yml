@@ -1,0 +1,26 @@
+# Testy samotné brány. Spouští kód z PR, proto jen se čtecím oprávněním a bez tajemství.
+name: Testy brány
+
+on:
+  pull_request:
+    paths: [".github/brana/**", ".github/pravidla.jsonc"]
+  push:
+    branches: [main]
+    paths: [".github/brana/**", ".github/pravidla.jsonc"]
+
+permissions:
+  contents: read
+
+jobs:
+  testy:
+    name: Testy brány
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --test '.github/brana/test/*.test.mjs'

@@ -1,0 +1,29 @@
+# Týdenní souhrn v pondělí ráno: issue se samosloučenými změnami, vety, reverty a tabulkou měření.
+name: Týdenní souhrn
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  souhrn:
+    name: Týdenní souhrn
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Souhrn
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node .github/brana/souhrn.mjs

@@ -1,0 +1,77 @@
+# Brána sloučení: review druhým modelem a rozhodnutí, zda se PR sloučí.
+#
+# Bezpečnost:
+# - pull_request_target běží s kódem z HLAVNÍ větve, ne z větve PR. Úprava brány v PR proto nemůže
+#   posoudit sama sebe a kód z PR se tu nikdy nestahuje ani nespouští (diff se čte přes API).
+# - Kontrolu „Brána“ zapisuje GITHUB_TOKEN, tedy aplikace GitHub Actions. Ruleset ji vyžaduje právě
+#   od této aplikace (integration_id 15368), takže agent si zelenou kontrolu stejného jména nezapíše.
+# - Plánovaný běh každou hodinu slučuje PR, kterým uplynula lhůta, a dohání chybějící review.
+name: Brána
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, labeled, unlabeled, ready_for_review, converted_to_draft]
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "Číslo PR (prázdné = všechny otevřené)"
+        required: false
+
+permissions:
+  contents: write       # sloučení PR
+  pull-requests: write  # komentáře, štítky
+  issues: write
+  checks: write         # kontrola „Brána“
+
+concurrency:
+  # Událost se štítkem `schvaleno` má vlastní skupinu, aby ji souběžná událost nezrušila dřív,
+  # než zaznamená souhlas.
+  group: brana-${{ (github.event.action == 'labeled' && github.event.label.name == 'schvaleno') && github.run_id || github.event.pull_request.number || 'vse' }}
+
+jobs:
+  review:
+    name: Review druhým modelem
+    if: >-
+      github.event_name != 'pull_request_target' ||
+      contains(fromJSON('["opened","synchronize","reopened","ready_for_review"]'), github.event.action)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Review
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REVIEW_API_KEY: ${{ secrets.REVIEW_API_KEY }}
+          REVIEW_API_URL: ${{ vars.REVIEW_API_URL }}
+          REVIEW_MODEL: ${{ vars.REVIEW_MODEL }}
+          PR: ${{ github.event.pull_request.number || github.event.inputs.pr }}
+        run: node .github/brana/review.mjs "$PR"
+
+  brana:
+    name: Vyhodnocení brány
+    needs: review
+    # Brána běží i po selhaném nebo přeskočeném review: bez platného review PR prostě nesamosloučí.
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Vyhodnotit
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SAMOSLUCOVANI: ${{ vars.SAMOSLUCOVANI }}
+        run: node .github/brana/beh.mjs

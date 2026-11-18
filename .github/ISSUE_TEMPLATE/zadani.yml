@@ -1,0 +1,29 @@
+name: Zadání pro agenta
+description: Co má agent udělat. Realizuje se, až vlastník přidá štítek „zadani“.
+labels: ["navrh"]
+body:
+  - type: textarea
+    id: cil
+    attributes:
+      label: Cíl
+      description: Co se má změnit a pro koho. Jedna až tři věty.
+    validations:
+      required: true
+  - type: textarea
+    id: hotovo
+    attributes:
+      label: Hotovo, když
+      description: Ověřitelné podmínky. Podle nich agent pozná, že skončil, a recenzent, že je to pravda.
+      placeholder: "- Na stránce /kontakt je nový e-mail podpory\n- Test tests/kontakt.test.ts prochází"
+    validations:
+      required: true
+  - type: textarea
+    id: mimo
+    attributes:
+      label: Mimo rozsah
+      description: Co agent dělat nemá, i kdyby se to nabízelo.
+  - type: textarea
+    id: kontext
+    attributes:
+      label: Podklady
+      description: Odkazy, soubory, data.

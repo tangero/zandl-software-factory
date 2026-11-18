@@ -1,0 +1,10 @@
+[
+  { "name": "zadani", "color": "0e8a16", "description": "Zadání pro agenta. Přidává jen vlastník." },
+  { "name": "navrh", "color": "c5def5", "description": "Návrh zadání, čeká na vlastníka. Agent nerealizuje." },
+  { "name": "schvaleno", "color": "1d76db", "description": "Vlastník schválil tento commit PR. Přidává jen vlastník." },
+  { "name": "samoslouceno", "color": "bfdadc", "description": "Vratná změna sloučená bránou bez schválení. Přidává jen brána." },
+  { "name": "stop", "color": "b60205", "description": "Veto: PR se nesloučí. Odebere ho jen ten, kdo ho přidal, nebo vlastník." },
+  { "name": "otazka", "color": "fbca04", "description": "Agent se ptá vlastníka a čeká na odpověď." },
+  { "name": "zamitnuto", "color": "000000", "description": "Nerealizovat." },
+  { "name": "souhrn", "color": "ededed", "description": "Týdenní souhrn práce agenta." }
+]
