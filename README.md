@@ -1,6 +1,10 @@
-# AI agent na vašem GitHubu bez věčného schvalování
+# Zandl Software Factory
+
+**AI agent na vašem GitHubu bez věčného schvalování.**
 
 Startovací sada pro firmu, která chce nechat AI agenta psát kód a nechce schvalovat každou čárku.
+**[Použít šablonu →](https://github.com/tangero/zandl-software-factory/generate)**
+
 Platí jedno pravidlo:
 
 > **Vratná změna se samosloučí. Nevratná čeká na vás.**
@@ -39,9 +43,12 @@ Budete potřebovat:
 - Node.js 20 nebo novější,
 - klíč k API modelu, který bude dělat review. Má být od jiného výrobce, než jaký používá váš agent.
 
-**1. Zkopírujte sadu do repozitáře.** Pro nový projekt klikněte na *Use this template*. Do existujícího
-repozitáře zkopírujte `.github/`, `nastaveni/`, `MANIFEST.md`, `AGENTS.md` a `CLAUDE.md`. Když už
-`AGENTS.md` nebo `CLAUDE.md` máte, obsah spojte ručně.
+**1. Zkopírujte sadu do repozitáře.** Pro nový projekt klikněte nahoře na *Use this template → Create a new
+repository* a nový repozitář si naklonujte. Do existujícího repozitáře zkopírujte `.github/`, `nastaveni/`,
+`MANIFEST.md`, `AGENTS.md` a `CLAUDE.md`. Když už `AGENTS.md` nebo `CLAUDE.md` máte, obsah spojte ručně.
+
+Ve vašem repozitáři pak zkontrolujte *Actions*: když GitHub hlásí, že workflow jsou vypnutá, zapněte je
+(v repozitáři šablony vypnutá jsou, aby brána neběžela nad nevyplněnými pravidly).
 
 **2. Spusťte průvodce** v kořeni repozitáře:
 
