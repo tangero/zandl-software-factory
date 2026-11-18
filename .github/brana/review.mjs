@@ -102,8 +102,11 @@ async function zrecenzuj(cislo) {
 
 async function main() {
   api = vytvorApi();
-  for (const p of ['REVIEW_API_URL', 'REVIEW_API_KEY', 'REVIEW_MODEL']) {
-    if (!process.env[p]) throw new Error(`Chybí ${p}. Nastavení popisuje README, krok 4.`);
+  const chybi = ['REVIEW_API_URL', 'REVIEW_API_KEY', 'REVIEW_MODEL'].filter((p) => !process.env[p]);
+  if (chybi.length) {
+    // Bez recenzenta se nic nesamosloučí (brána čeká na review), ale workflow kvůli tomu nemá svítit červeně.
+    console.log(`::warning::Review není nastavené (chybí ${chybi.join(', ')}). Samoslučování nepoběží, PR se sloučí jen se štítkem schvaleno. Návod: README, „Review druhým modelem“.`);
+    return;
   }
   const zadane = Number(process.argv[2]);
   const cisla = Number.isInteger(zadane) && zadane > 0 ? [zadane] : await otevrenePr(api);

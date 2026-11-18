@@ -20,4 +20,4 @@ fi
 # Výchozí oprávnění GITHUB_TOKEN jen pro čtení: workflow, která spouštějí kód z PR (testy),
 # pak nemohou zapsat kontrolu „Brána“ ani nic sloučit. Workflow brány si práva zvyšuje samo.
 gh api -X PUT "repos/$REPO/actions/permissions/workflow" -f default_workflow_permissions=read -F can_approve_pull_request_reviews=false
-echo "Hotovo. Další kroky: README, krok 4 (review) a krok 5 (proměnné)."
+echo "Hotovo. Další krok: review druhým modelem (README, krok 4)."

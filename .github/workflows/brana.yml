@@ -3,7 +3,7 @@
 # Bezpečnost:
 # - pull_request_target běží s kódem z HLAVNÍ větve, ne z větve PR. Úprava brány v PR proto nemůže
 #   posoudit sama sebe a kód z PR se tu nikdy nestahuje ani nespouští (diff se čte přes API).
-# - Kontrolu „Brána“ zapisuje GITHUB_TOKEN, tedy aplikace GitHub Actions. Ruleset ji vyžaduje právě
+# - Stav commitu „Brána“ zapisuje GITHUB_TOKEN, tedy aplikace GitHub Actions. Ruleset ji vyžaduje právě
 #   od této aplikace (integration_id 15368), takže agent si zelenou kontrolu stejného jména nezapíše.
 # - Plánovaný běh každou hodinu slučuje PR, kterým uplynula lhůta, a dohání chybějící review.
 name: Brána
@@ -23,7 +23,8 @@ permissions:
   contents: write       # sloučení PR
   pull-requests: write  # komentáře, štítky
   issues: write
-  checks: write         # kontrola „Brána“
+  statuses: write       # stav commitu „Brána“
+  checks: read          # výsledky testů z pozadovaneKontroly
 
 concurrency:
   # Událost se štítkem `schvaleno` má vlastní skupinu, aby ji souběžná událost nezrušila dřív,

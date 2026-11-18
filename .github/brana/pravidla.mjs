@@ -4,7 +4,6 @@
 export const STITEK = { schvaleno: 'schvaleno', samoslouceno: 'samoslouceno', stop: 'stop' };
 export const KONTROLA = 'Brána';
 export const AUTOMATIKA = 'github-actions[bot]';
-export const APLIKACE_AUTOMATIKY = 'github-actions';
 export const ZNACKA_REVIEW = '<!-- brana:review -->';
 export const znackaSouhlasu = (sha) => `<!-- brana:souhlas sha=${sha} -->`;
 
@@ -148,12 +147,13 @@ export function stavKontrol(runy, pozadovane) {
   return vysledek;
 }
 
-// Lhůta běží od prvního zápisu kontroly „Brána“ na tento commit. Čas zapisuje GitHub, ne autor
-// commitu, takže ho nejde posunout falešným datem commitu.
-export function zacatekLhuty(runyBrany) {
-  const casy = runyBrany
-    .filter((r) => r.nazev === KONTROLA && r.aplikace === APLIKACE_AUTOMATIKY && r.zacatek)
-    .map((r) => Date.parse(r.zacatek));
+// Lhůta běží od prvního stavu „Brána“, který automatika zapsala na tento commit. Čas zapisuje GitHub,
+// ne autor commitu, takže ho nejde posunout falešným datem commitu.
+// stavyBrany: stavy commitu [{ kontext, autor, kdy }].
+export function zacatekLhuty(stavyBrany) {
+  const casy = stavyBrany
+    .filter((s) => s.kontext === KONTROLA && s.autor === AUTOMATIKA && s.kdy)
+    .map((s) => Date.parse(s.kdy));
   return casy.length ? Math.min(...casy) : null;
 }
 
@@ -206,7 +206,7 @@ export function rozhodni(v, konf) {
   }
   if (review.stav === 'clovek') return clovek(`Review: ${review.duvod}.`);
 
-  const zacatek = zacatekLhuty(v.runyBrany) ?? v.ted;
+  const zacatek = zacatekLhuty(v.stavyBrany) ?? v.ted;
   const sloucitPo = zacatek + zmena.lhutaHodin * 3600_000;
   if (v.ted < sloucitPo) {
     return {

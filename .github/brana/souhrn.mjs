@@ -23,7 +23,7 @@ export function sestavSouhrn({ samo, schvalene, vety, reverty, cekajici, nahodny
     `## Samosloučeno (${samo.length})`,
     ...(samo.length ? samo.map(odkaz) : ['- nic']),
     '',
-    `## Schváleno vlastníkem (${schvalene.length})`,
+    `## Sloučeno bez samoslučování: se schválením vlastníka nebo ručně (${schvalene.length})`,
     ...(schvalene.length ? schvalene.map(odkaz) : ['- nic']),
     '',
     `## Zastaveno štítkem \`stop\` (${vety.length})`,

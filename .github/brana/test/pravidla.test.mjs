@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
   rozhodni, nactiKonfiguraci, odpovida, lhutaCesty, zaradZmenu, aktivniStop, precistReview,
-  ZNACKA_REVIEW, AUTOMATIKA, KONTROLA, APLIKACE_AUTOMATIKY, STITEK, znackaSouhlasu,
+  ZNACKA_REVIEW, AUTOMATIKA, KONTROLA, STITEK, znackaSouhlasu,
 } from '../pravidla.mjs';
 import { sestavKomentar, vytahniJson } from '../review.mjs';
 
@@ -32,7 +32,7 @@ function vstup(z = {}) {
     udalosti: z.udalosti ?? [],
     komentare: z.komentare ?? [review()],
     kontroly: z.kontroly ?? [],
-    runyBrany: z.runyBrany ?? [{ nazev: KONTROLA, aplikace: APLIKACE_AUTOMATIKY, zacatek: new Date(T0).toISOString() }],
+    stavyBrany: z.stavyBrany ?? [{ kontext: KONTROLA, autor: AUTOMATIKA, kdy: new Date(T0).toISOString() }],
     samoslucovaniZapnuto: z.samoslucovaniZapnuto ?? true,
     ted: z.ted ?? T0 + 25 * HODINA,
   };
@@ -40,8 +40,8 @@ function vstup(z = {}) {
 
 // --- Konfigurace a cesty ---------------------------------------------------------------------
 
-test('šablona pravidel bez vyplněného vlastníka neprojde', () => {
-  const text = fs.readFileSync(new URL('../../pravidla.jsonc', import.meta.url), 'utf8');
+test('pravidla s nevyplněným vlastníkem neprojdou', () => {
+  const text = JSON.stringify({ ...konf, vlastnici: ['VAS-GITHUB-LOGIN'] });
   assert.throws(() => nactiKonfiguraci(text), /VAS-GITHUB-LOGIN/);
 });
 
@@ -95,16 +95,16 @@ test('před koncem lhůty čeká', () => {
 });
 
 test('lhůta se počítá od prvního zápisu brány, ne od pozdějších', () => {
-  const runyBrany = [
-    { nazev: KONTROLA, aplikace: APLIKACE_AUTOMATIKY, zacatek: new Date(T0 + 20 * HODINA).toISOString() },
-    { nazev: KONTROLA, aplikace: APLIKACE_AUTOMATIKY, zacatek: new Date(T0).toISOString() },
+  const stavyBrany = [
+    { kontext: KONTROLA, autor: AUTOMATIKA, kdy: new Date(T0 + 20 * HODINA).toISOString() },
+    { kontext: KONTROLA, autor: AUTOMATIKA, kdy: new Date(T0).toISOString() },
   ];
-  assert.equal(rozhodni(vstup({ runyBrany }), konf).stav, 'sloucit');
+  assert.equal(rozhodni(vstup({ stavyBrany }), konf).stav, 'sloucit');
 });
 
-test('zápis brány od jiné aplikace lhůtu nezkrátí', () => {
-  const runyBrany = [{ nazev: KONTROLA, aplikace: 'agent-app', zacatek: new Date(T0 - 100 * HODINA).toISOString() }];
-  const v = rozhodni(vstup({ runyBrany, ted: T0 }), konf);
+test('stav brány od jiného účtu lhůtu nezkrátí', () => {
+  const stavyBrany = [{ kontext: KONTROLA, autor: 'agent-app[bot]', kdy: new Date(T0 - 100 * HODINA).toISOString() }];
+  const v = rozhodni(vstup({ stavyBrany, ted: T0 }), konf);
   assert.equal(v.stav, 'ceka', 'bez zápisu automatiky lhůta začíná teď');
 });
 

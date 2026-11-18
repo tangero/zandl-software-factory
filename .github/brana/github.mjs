@@ -2,7 +2,7 @@
 // Kód z větve PR se nikdy nestahuje ani nespouští; všechno o PR se čte přes API.
 
 import fs from 'node:fs';
-import { nactiKonfiguraci } from './pravidla.mjs';
+import { nactiKonfiguraci, KONTROLA } from './pravidla.mjs';
 
 export const REPO = process.env.GITHUB_REPOSITORY;
 
@@ -83,6 +83,13 @@ export async function nactiVstup(api, cislo) {
     zacatek: r.started_at,
     aplikace: r.app?.slug,
   }));
+  // Stav „Brána“ je stav commitu (Commit Status API), ne check run: check run zapsaný přes API skončí
+  // ve starší sadě kontrol (check suite) a ruleset vidí jen nejnovější sadu aplikace. Viz README.
+  const stavyBrany = (await vsechny(api, `repos/${REPO}/commits/${hlava}/statuses`))
+    .filter((s) => s.context === KONTROLA)
+    .map((s) => ({ kontext: s.context, autor: s.creator?.login, kdy: s.created_at, stav: s.state, popis: s.description }))
+    .sort((a, b) => Date.parse(b.kdy) - Date.parse(a.kdy));
+
   // Pro testy CI platí poslední běh každé kontroly.
   const posledni = new Map();
   const odNejnovejsiho = [...runy].sort((a, b) => Date.parse(b.zacatek ?? 0) - Date.parse(a.zacatek ?? 0));
@@ -96,6 +103,6 @@ export async function nactiVstup(api, cislo) {
     udalosti,
     komentare,
     kontroly: [...posledni.values()],
-    runyBrany: runy,
+    stavyBrany,
   };
 }

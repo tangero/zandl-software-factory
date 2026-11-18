@@ -27,21 +27,25 @@ async function zapisStav(cislo, telo) {
   else await komentuj(cislo, obsah);
 }
 
-async function zapisKontrolu(hlava, verdikt) {
+// Stav commitu „Brána“: success = smí se sloučit, pending = čeká, failure = zastaveno.
+// Zapisuje se jen při změně, aby hodinový běh nezakládal stále nové stavy.
+async function zapisKontrolu(vstup, verdikt) {
   const titulek = {
     sloucit: verdikt.zpusob === 'samoslouceni' ? 'Samosloučí se' : 'Schváleno vlastníkem',
     ceka: verdikt.potrebujeCloveka ? 'Čeká na vlastníka' : 'Čeká',
     blokovano: 'Zastaveno',
   }[verdikt.stav];
-  await api(`repos/${REPO}/check-runs`, {
+  const state = { sloucit: 'success', ceka: 'pending', blokovano: 'failure' }[verdikt.stav];
+  const popis = `${titulek}: ${verdikt.duvody[0]}`.slice(0, 140);
+  const posledni = vstup.stavyBrany.find((s) => s.autor === 'github-actions[bot]');
+  if (posledni?.stav === state && posledni?.popis === popis) return;
+  await api(`repos/${REPO}/statuses/${vstup.pr.hlava}`, {
     method: 'POST',
     body: {
-      name: KONTROLA,
-      head_sha: hlava,
-      status: 'completed',
-      // Čekání je pro povinnou kontrolu neúspěch: neutral by GitHub bral jako splněnou podmínku.
-      conclusion: verdikt.stav === 'sloucit' ? 'success' : 'failure',
-      output: { title: titulek, summary: verdikt.duvody.map((d) => `- ${d}`).join('\n') },
+      state,
+      context: KONTROLA,
+      description: popis,
+      target_url: `${process.env.GITHUB_SERVER_URL}/${REPO}/actions/runs/${process.env.GITHUB_RUN_ID}`,
     },
   });
 }
@@ -50,7 +54,7 @@ async function vyhodnotPr(cislo, konf) {
   const vstup = await nactiVstup(api, cislo);
   if (vstup.pr.stav !== 'open') return;
   const verdikt = rozhodni({ ...vstup, samoslucovaniZapnuto, ted: Date.now() }, konf);
-  await zapisKontrolu(vstup.pr.hlava, verdikt);
+  await zapisKontrolu(vstup, verdikt);
   console.log(`PR #${cislo}: ${verdikt.stav} – ${verdikt.duvody.join(' ')}`);
 
   if (verdikt.stav !== 'sloucit') {
