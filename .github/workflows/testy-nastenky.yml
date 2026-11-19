@@ -1,0 +1,27 @@
+# Testy nástěnky (složka nastenka/). V projektových repozitářích, kam se nástěnka nekopíruje,
+# se nikdy nespustí. Spouští kód z PR, proto jen se čtecím oprávněním a bez tajemství.
+name: Testy nástěnky
+
+on:
+  pull_request:
+    paths: ["nastenka/**", ".github/brana/pravidla.mjs"]
+  push:
+    branches: [main]
+    paths: ["nastenka/**", ".github/brana/pravidla.mjs"]
+
+permissions:
+  contents: read
+
+jobs:
+  testy:
+    name: Testy nástěnky
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --test 'nastenka/test/*.test.mjs'

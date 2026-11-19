@@ -1,0 +1,25 @@
+# Vzor konfigurace Workeru. Průvodce `node nastenka/nastav.mjs` z něj vytvoří wrangler.toml
+# (ten se necommituje: obsahuje id vaší databáze a aplikace). Ručně stačí doplnit hodnoty v <>.
+name = "nastenka"
+main = "src/index.mjs"
+compatibility_date = "2026-11-01"
+
+# Obnova všech repozitářů každých 15 minut, kdyby nějaký webhook nedošel.
+[triggers]
+crons = ["*/15 * * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "nastenka"
+database_id = "<id databáze z `wrangler d1 create nastenka`>"
+migrations_dir = "migrace"
+
+[vars]
+# GitHub účty, které se smějí přihlásit, oddělené čárkou.
+VLASTNICI = "<váš-github-login>"
+GITHUB_APP_ID = "<App ID>"
+GITHUB_APP_SLUG = "<slug aplikace>"
+GITHUB_CLIENT_ID = "<Client ID>"
+
+# Tajemství se nastavují příkazem `wrangler secret put <NÁZEV>`, nikdy sem:
+# GITHUB_CLIENT_SECRET, GITHUB_APP_PRIVATE_KEY, GITHUB_WEBHOOK_SECRET, SESSION_KEY

@@ -7,6 +7,32 @@ export const AUTOMATIKA = 'github-actions[bot]';
 export const ZNACKA_REVIEW = '<!-- brana:review -->';
 export const znackaSouhlasu = (sha) => `<!-- brana:souhlas sha=${sha} -->`;
 
+// Strojově čitelný verdikt v komentáři se stavem brány. Čte ho nástěnka (nastenka/), aby nemusela
+// parsovat popis stavu commitu, který je psaný pro lidi a oseknutý na 140 znaků.
+export const ZNACKA_VERDIKTU = 'brana:verdikt';
+export function znackaVerdiktu(verdikt, hlava) {
+  const data = {
+    stav: verdikt.stav,
+    zpusob: verdikt.zpusob ?? null,
+    potrebujeCloveka: Boolean(verdikt.potrebujeCloveka),
+    sloucitPo: verdikt.sloucitPo ? new Date(verdikt.sloucitPo).toISOString() : null,
+    hlava,
+  };
+  // `--` uvnitř HTML komentáře by ho ukončilo; JSON ho obsahovat může jen v textu, proto escapujeme.
+  return `<!-- ${ZNACKA_VERDIKTU} ${JSON.stringify(data).replaceAll('--', '\\u002d\\u002d')} -->`;
+}
+
+// Stav commitu „Brána“: success = smí se sloučit, pending = čeká, failure = zastaveno.
+export function popisKontroly(verdikt) {
+  const titulek = {
+    sloucit: verdikt.zpusob === 'samoslouceni' ? 'Samosloučí se' : 'Schváleno vlastníkem',
+    ceka: verdikt.potrebujeCloveka ? 'Čeká na vlastníka' : 'Čeká',
+    blokovano: 'Zastaveno',
+  }[verdikt.stav];
+  const state = { sloucit: 'success', ceka: 'pending', blokovano: 'failure' }[verdikt.stav];
+  return { state, popis: `${titulek}: ${verdikt.duvody[0]}`.slice(0, 140) };
+}
+
 // --- Konfigurace -----------------------------------------------------------------------------
 
 export function nactiKonfiguraci(text) {

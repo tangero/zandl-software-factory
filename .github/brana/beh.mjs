@@ -4,7 +4,7 @@
 // 3. když je PR připravený, sloučí ho a samosloučený označí štítkem `samoslouceno`.
 
 import fs from 'node:fs';
-import { rozhodni, KONTROLA, STITEK, znackaSouhlasu } from './pravidla.mjs';
+import { rozhodni, KONTROLA, STITEK, znackaSouhlasu, znackaVerdiktu, popisKontroly } from './pravidla.mjs';
 import { REPO, vytvorApi, nactiKonfiguraciZeSouboru, nactiVstup, otevrenePr } from './github.mjs';
 
 const api = vytvorApi();
@@ -18,25 +18,18 @@ const ZNACKA_STAVU = '<!-- brana:stav -->';
 const komentuj = (cislo, telo) => api(`repos/${REPO}/issues/${cislo}/comments`, { method: 'POST', body: { body: telo } });
 
 // Jeden komentář se stavem brány na PR, který se přepisuje (žádný spam při každém běhu).
-async function zapisStav(cislo, telo) {
+async function zapisStav(cislo, telo, verdikt, hlava) {
   const { data: vsechny } = await api(`repos/${REPO}/issues/${cislo}/comments?per_page=100`);
   const stavajici = vsechny.find((k) => k.user?.login === 'github-actions[bot]' && k.body?.includes(ZNACKA_STAVU));
-  const obsah = `${ZNACKA_STAVU}\n${telo}`;
+  const obsah = `${ZNACKA_STAVU}\n${znackaVerdiktu(verdikt, hlava)}\n${telo}`;
   if (stavajici?.body === obsah) return;
   if (stavajici) await api(`repos/${REPO}/issues/comments/${stavajici.id}`, { method: 'PATCH', body: { body: obsah } });
   else await komentuj(cislo, obsah);
 }
 
-// Stav commitu „Brána“: success = smí se sloučit, pending = čeká, failure = zastaveno.
-// Zapisuje se jen při změně, aby hodinový běh nezakládal stále nové stavy.
+// Stav commitu „Brána“. Zapisuje se jen při změně, aby hodinový běh nezakládal stále nové stavy.
 async function zapisKontrolu(vstup, verdikt) {
-  const titulek = {
-    sloucit: verdikt.zpusob === 'samoslouceni' ? 'Samosloučí se' : 'Schváleno vlastníkem',
-    ceka: verdikt.potrebujeCloveka ? 'Čeká na vlastníka' : 'Čeká',
-    blokovano: 'Zastaveno',
-  }[verdikt.stav];
-  const state = { sloucit: 'success', ceka: 'pending', blokovano: 'failure' }[verdikt.stav];
-  const popis = `${titulek}: ${verdikt.duvody[0]}`.slice(0, 140);
+  const { state, popis } = popisKontroly(verdikt);
   const posledni = vstup.stavyBrany.find((s) => s.autor === 'github-actions[bot]');
   if (posledni?.stav === state && posledni?.popis === popis) return;
   await api(`repos/${REPO}/statuses/${vstup.pr.hlava}`, {
@@ -58,7 +51,7 @@ async function vyhodnotPr(cislo, konf) {
   console.log(`PR #${cislo}: ${verdikt.stav} – ${verdikt.duvody.join(' ')}`);
 
   if (verdikt.stav !== 'sloucit') {
-    await zapisStav(cislo, `**Brána:** ${verdikt.duvody.join(' ')}`);
+    await zapisStav(cislo, `**Brána:** ${verdikt.duvody.join(' ')}`, verdikt, vstup.pr.hlava);
     return;
   }
   try {
@@ -70,13 +63,13 @@ async function vyhodnotPr(cislo, konf) {
   } catch (e) {
     // 405/409: ruleset nebo nový commit sloučení nepustil. Příště se vyhodnotí znovu.
     console.log(`PR #${cislo}: sloučení odmítnuto (${e.status}). ${e.message}`);
-    await zapisStav(cislo, `**Brána:** PR je připravený, ale GitHub sloučení odmítl (${e.status}). Zkusím to při dalším běhu.`);
+    await zapisStav(cislo, `**Brána:** PR je připravený, ale GitHub sloučení odmítl (${e.status}). Zkusím to při dalším běhu.`, verdikt, vstup.pr.hlava);
     return;
   }
   if (verdikt.zpusob === 'samoslouceni') {
     await api(`repos/${REPO}/issues/${cislo}/labels`, { method: 'POST', body: { labels: [STITEK.samoslouceno] } });
   }
-  await zapisStav(cislo, `**Brána:** sloučeno (${verdikt.zpusob === 'samoslouceni' ? 'samosloučeno' : 'schváleno vlastníkem'}). Vrátit jde tlačítkem Revert.`);
+  await zapisStav(cislo, `**Brána:** sloučeno (${verdikt.zpusob === 'samoslouceni' ? 'samosloučeno' : 'schváleno vlastníkem'}). Vrátit jde tlačítkem Revert.`, { ...verdikt, stav: 'slouceno' }, vstup.pr.hlava);
 }
 
 async function main() {
