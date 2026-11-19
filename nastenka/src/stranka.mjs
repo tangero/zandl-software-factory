@@ -152,7 +152,7 @@ dialog label.prepinac { display: flex; }
 
 export const SKRIPT = `
 'use strict';
-const stav = { data: null, pohled: 'sloupce' };
+const stav = { data: null, pohled: 'sloupce', trvaleHlaseni: '' };
 const $ = (id) => document.getElementById(id);
 const el = (znacka, trida, text) => { const e = document.createElement(znacka); if (trida) e.className = trida; if (text != null) e.textContent = text; return e; };
 const casFormat = new Intl.DateTimeFormat('cs-CZ', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -165,7 +165,7 @@ async function nacti() {
   if (odpoved.status === 401) { location.href = '/prihlasit'; return; }
   if (!odpoved.ok) { hlaseni('Nástěnku se nepodařilo načíst. Zkusím to znovu za minutu.'); return; }
   stav.data = await odpoved.json();
-  hlaseni('');
+  hlaseni(stav.trvaleHlaseni || '');
   vykresli();
 }
 
@@ -274,7 +274,8 @@ async function odesli(udalost) {
     const vysledek = await odpoved.json().catch(() => ({}));
     if (!odpoved.ok) throw new Error(vysledek.chyba || 'Zadání se nepodařilo založit.');
     f.reset(); $('dialog').close();
-    hlaseni('Zadání #' + vysledek.cislo + ' je založené. Na nástěnce se objeví po obnovení z GitHubu.');
+    if (vysledek.varovani) { stav.trvaleHlaseni = vysledek.varovani + ' ' + vysledek.url; hlaseni(stav.trvaleHlaseni); }
+    else hlaseni('Zadání #' + vysledek.cislo + ' je založené. Na nástěnce se objeví po obnovení z GitHubu.');
     setTimeout(nacti, 4000);
   } catch (e) {
     const ch = $('chyba-formulare'); ch.textContent = e.message; ch.hidden = false;

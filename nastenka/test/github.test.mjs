@@ -90,3 +90,20 @@ test('tělo zadání má oddíly formuláře zadani.yml', () => {
   const t = teloZadani({ cil: 'A', hotovo: 'B', mimo: '', kontext: ' ' });
   assert.match(t, /^### Cíl\n\nA\n\n### Hotovo, když\n\nB\n\n### Mimo rozsah\n\n_No response_/);
 });
+
+test('zalozZadani: když štítek selže, vrátí issue s varováním místo chyby (žádný duplikát při opakování)', async () => {
+  const { zalozZadani } = await import('../src/github.mjs');
+  const puvodni = globalThis.fetch;
+  const volani = [];
+  globalThis.fetch = async (url, init) => {
+    volani.push(`${init.method} ${new URL(url).pathname}`);
+    if (url.endsWith('/labels')) return new Response('nope', { status: 403 });
+    return new Response(JSON.stringify({ number: 42, html_url: 'https://github.com/a/b/issues/42' }), { status: 201 });
+  };
+  try {
+    const v = await zalozZadani('t', 'a/b', { titulek: 'X', cil: 'c', hotovo: 'h' });
+    assert.equal(v.cislo, 42);
+    assert.match(v.varovani, /zadani/);
+    assert.deepEqual(volani, ['POST /repos/a/b/issues', 'POST /repos/a/b/issues/42/labels']);
+  } finally { globalThis.fetch = puvodni; }
+});

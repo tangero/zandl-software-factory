@@ -41,16 +41,20 @@ export async function odeberInstalaci(env, installationId) {
   ]);
 }
 
+// Snímek nese čas začátku načtení. Pomalejší starší načtení nepřepíše novější (dva webhooky těsně po sobě).
+const JEN_NOVEJSI = 'WHERE id = ? AND (synchronizovano IS NULL OR synchronizovano <= ?)';
+
 export async function obnovRepozitar(env, repo) {
+  const zacatek = ted();
   try {
     const token = await tokenInstalace(env, repo.installation_id);
     const polozky = await nactiRepozitar(token, repo.full_name);
-    await env.DB.prepare('UPDATE repozitare SET polozky = ?, synchronizovano = ?, chyba = NULL WHERE id = ?')
-      .bind(JSON.stringify(polozky), ted(), repo.id).run();
+    await env.DB.prepare(`UPDATE repozitare SET polozky = ?, synchronizovano = ?, chyba = NULL ${JEN_NOVEJSI}`)
+      .bind(JSON.stringify(polozky), zacatek, repo.id, zacatek).run();
   } catch (e) {
     console.error(`Obnova ${repo.full_name}: ${e.message}`);
-    await env.DB.prepare('UPDATE repozitare SET chyba = ?, synchronizovano = ? WHERE id = ?')
-      .bind(String(e.message).slice(0, 500), ted(), repo.id).run();
+    await env.DB.prepare(`UPDATE repozitare SET chyba = ?, synchronizovano = ? ${JEN_NOVEJSI}`)
+      .bind(String(e.message).slice(0, 500), zacatek, repo.id, zacatek).run();
   }
 }
 
@@ -95,7 +99,8 @@ export async function zpracujWebhook(env, udalost, data) {
     if (['created', 'unsuspend', 'new_permissions_accepted'].includes(data.action)) {
       const repozitare = data.repositories ?? [];
       await ulozRepozitare(env, instalace, repozitare);
-      for (const r of repozitare) await obnovRepozitar(env, { ...r, installation_id: instalace });
+      // Nejvýš tolik jako cron; zbytek (synchronizovano IS NULL) vezme cron přednostně.
+      for (const r of repozitare.slice(0, REPOZITARU_NA_BEH)) await obnovRepozitar(env, { ...r, installation_id: instalace });
     }
     return;
   }
@@ -103,7 +108,7 @@ export async function zpracujWebhook(env, udalost, data) {
     await odeberRepozitare(env, (data.repositories_removed ?? []).map((r) => r.id));
     const pridane = data.repositories_added ?? [];
     await ulozRepozitare(env, instalace, pridane);
-    for (const r of pridane) await obnovRepozitar(env, { ...r, installation_id: instalace });
+    for (const r of pridane.slice(0, REPOZITARU_NA_BEH)) await obnovRepozitar(env, { ...r, installation_id: instalace });
     return;
   }
   // Ostatní události (issues, pull_request, status…): obnovit celý repozitář jedním dotazem.

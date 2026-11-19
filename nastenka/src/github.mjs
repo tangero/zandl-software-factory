@@ -197,10 +197,12 @@ export async function zalozZadani(tokenUzivatele, fullName, data) {
     method: 'POST',
     body: { title: data.titulek.trim(), body: teloZadani(data) },
   });
-  await gh(`repos/${fullName}/issues/${issue.number}/labels`, {
-    token: tokenUzivatele,
-    method: 'POST',
-    body: { labels: [data.stitek === 'navrh' ? 'navrh' : 'zadani'] },
-  });
+  const stitek = data.stitek === 'navrh' ? 'navrh' : 'zadani';
+  try {
+    await gh(`repos/${fullName}/issues/${issue.number}/labels`, { token: tokenUzivatele, method: 'POST', body: { labels: [stitek] } });
+  } catch (e) {
+    // Issue už existuje: neházet chybu, jinak by uživatel zkusil znovu a vznikl duplikát.
+    return { cislo: issue.number, url: issue.html_url, varovani: `Issue vzniklo, ale štítek ${stitek} se nepřidal (${e.status ?? e.message}). Přidejte ho na GitHubu ručně, jinak se zadání na nástěnce neukáže.` };
+  }
   return { cislo: issue.number, url: issue.html_url };
 }

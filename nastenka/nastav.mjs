@@ -43,7 +43,7 @@ function wrangler(args, { vstup, tiše = false } = {}) {
     stdio: vstup !== undefined || tiše ? ['pipe', 'pipe', 'pipe'] : ['inherit', 'pipe', 'inherit'],
   });
   if (!tiše && r.stdout) process.stdout.write(r.stdout);
-  return { ok: r.status === 0, vystup: `${r.stdout ?? ''}${r.stderr ?? ''}` };
+  return { ok: r.status === 0, stdout: r.stdout ?? '', vystup: `${r.stdout ?? ''}${r.stderr ?? ''}` };
 }
 
 function otevri(url) {
@@ -91,7 +91,13 @@ ok(`vlastníci: ${stav.vlastnici}`);
 krok(1, 'Databáze D1');
 if (!stav.databaze) {
   const seznam = wrangler(['d1', 'list', '--json'], { tiše: true });
-  const existujici = seznam.ok ? JSON.parse(seznam.vystup.slice(seznam.vystup.indexOf('['))).find((d) => d.name === NAZEV_DB) : null;
+  let existujici = null;
+  try {
+    // Jen stdout: hlášky wrangleru jdou na stderr a JSON by rozbily.
+    existujici = JSON.parse(seznam.stdout).find((d) => d.name === NAZEV_DB) ?? null;
+  } catch {
+    console.log('   Seznam databází se nepodařilo přečíst, zakládám novou.');
+  }
   if (existujici) {
     stav.databaze = existujici.uuid;
   } else {
@@ -132,7 +138,8 @@ function manifest() {
     request_oauth_on_install: false,
     // Žádné Contents, Workflows, Administration ani Secrets: nástěnka nečte kód a nic nemění kromě issues.
     default_permissions: { metadata: 'read', issues: 'write', pull_requests: 'read', statuses: 'read', checks: 'read' },
-    default_events: ['issues', 'issue_comment', 'pull_request', 'pull_request_review', 'status', 'check_suite'],
+    // check_run (ne jen check_suite): jen ten hlásí i založení běhu, takže PR po pushi hned ukáže „běží kontroly“.
+    default_events: ['issues', 'issue_comment', 'pull_request', 'pull_request_review', 'status', 'check_suite', 'check_run'],
   };
 }
 

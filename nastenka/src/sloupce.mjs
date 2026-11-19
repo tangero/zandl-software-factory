@@ -135,6 +135,9 @@ export function urciSloupec({ issue, pr }, ted = Date.now()) {
     return vysledek;
   }
 
+  // Štítek zamitnuto rozhoduje i u otevřeného zadání (vlastník ho nemusí zavírat).
+  if (!otevrenePr && maStitek(issue, 'zamitnuto')) return { sloupec: 'zamitnuto', duvod: 'zadání zamítnuto' };
+
   // 1. Čeká na vás
   if (maStitek(issue, 'otazka')) return { sloupec: 'ceka', duvod: 'agent se ptá (štítek otazka)' };
   if (otevrenePr && maStitek(pr, 'stop')) return { sloupec: 'ceka', duvod: 'zastaveno štítkem stop' };

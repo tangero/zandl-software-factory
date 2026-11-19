@@ -118,3 +118,11 @@ test('prectiPopisBrany: čeká na vlastníka a zastaveno potřebují člověka',
   assert.equal(prectiPopisBrany('Čeká: PR je rozpracovaný (draft).').potrebujeCloveka, false);
   assert.equal(prectiPopisBrany(undefined).sloucitPo, null);
 });
+
+test('otevřené zadání se štítkem zamitnuto je Zamítnuto, ne Zadáno ani Návrh', () => {
+  assert.equal(sloupec({ issue: issue({ stitky: ['zadani', 'zamitnuto'] }) }), 'zamitnuto');
+  assert.equal(sloupec({ issue: issue({ stitky: ['navrh', 'zamitnuto'] }) }), 'zamitnuto');
+  assert.equal(sloupec({ issue: issue({ stitky: ['zamitnuto'] }) }), 'zamitnuto');
+  // Otevřený PR má přednost: práce ještě běží.
+  assert.equal(sloupec({ issue: issue({ stitky: ['zadani', 'zamitnuto'] }), pr: pr({ draft: true }) }), 'pracuje');
+});

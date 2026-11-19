@@ -3,8 +3,9 @@
 Jedna stránka se stavem zadání a PR ze všech repozitářů vaší software factory. Sloupce se počítají
 z GitHubu a z verdiktu brány, ručně se nic nepřetahuje. Z nástěnky jde založit nové zadání.
 
-Nástěnka je volitelná a je jedna na vlastníka, ne na repozitář. Do projektových repozitářů se
-nekopíruje: nasazuje se jednou z klonu šablony a repozitáře k ní připojíte instalací její GitHub App.
+Nástěnka je volitelná a je jedna na vlastníka, ne na repozitář. Nasazuje se jednou z klonu šablony
+a repozitáře k ní připojíte instalací její GitHub App. Do projektových repozitářů ji kopírovat
+nemusíte; když ji tam přinese *Use this template*, složku `nastenka/` klidně smažte.
 
 Specifikace: [Nástěnka práce – specifikace](https://claude.ai/artifact/A4ahV2qafCZzDzTqk2ayms).
 
@@ -49,9 +50,11 @@ běžící CI = Kontroluje se, selhané CI, požadované změny nebo zelené PR 
 | Zadáno | issue má `zadani` a ještě nemá PR |
 | Návrhy | issue má `navrh` |
 | Hotovo | PR je sloučený (posledních 14 dní) |
-| Zamítnuto | `zamitnuto`, zavřeno jako *not planned* nebo PR zavřený bez sloučení (skryté, přepínač *Zamítnuté*) |
+| Zamítnuto | štítek `zamitnuto` (i u otevřeného zadání), zavřeno jako *not planned* nebo PR zavřený bez sloučení (skryté, přepínač *Zamítnuté*) |
 
-Karta je jedno zadání: issue a jeho PR (větev `zadani/<číslo>-…` nebo `Fixes #<číslo>`).
+Karta je jedno zadání: issue a jeho PR (větev `zadani/<číslo>-…` nebo `Closes #<číslo>`).
+Šablona PR začíná `Closes #`, takže sloučení zadání zavře. Zůstane-li zadání po sloučení otevřené,
+po 14 dnech, kdy sloučený PR vypadne ze snímku, se vrátí do sloupce Zadáno; zavřete ho.
 Pravidlo je čistá funkce `urciSloupec` v `src/sloupce.mjs` s testy.
 
 ## Jak to funguje
@@ -64,11 +67,13 @@ GitHub ──webhook──▶ Worker ──GraphQL (1 dotaz na repozitář)─�
 cron po 15 min ──▶ obnoví seznam instalací a repozitáře, kterým mohl ujet webhook
 ```
 
-- **Čtení:** instalačním tokenem aplikace. Každá událost z repozitáře (issue, PR, review, stav, CI)
-  obnoví celý repozitář jedním GraphQL dotazem; D1 drží jen snímek a jde kdykoli smazat.
+- **Čtení:** instalačním tokenem aplikace. Každá událost z repozitáře (issue, PR, review, stav, CI
+  včetně založení běhu `check_run`) obnoví celý repozitář jedním GraphQL dotazem; D1 drží jen snímek
+  a jde kdykoli smazat. Starší načtení nepřepíše novější.
 - **Zápis:** jediný zápis na GitHub je nové zadání, a to tokenem přihlášeného vlastníka. Issue vznikne
   jeho jménem a štítek `zadani` přidá druhým voláním, takže na GitHubu je událost `labeled` s vlastníkem
-  jako aktérem. Podle ní agent (`AGENTS.md`) pozná, že zadání schválil vlastník.
+  jako aktérem. Podle ní agent (`AGENTS.md`) pozná, že zadání schválil vlastník. Když druhé volání
+  selže, issue zůstane a nástěnka ukáže varování s odkazem (štítek přidejte ručně); nová zadání nevznikají.
 - **Brána:** stav commitu „Brána“ a komentář brány se berou jen od `github-actions`. Brána zapisuje do
   komentáře strojově čitelný verdikt (`<!-- brana:verdikt {...} -->`); u starších kopií brány bez něj
   nástěnka čte popis stavu.
@@ -98,8 +103,11 @@ Nástěnka nikdy nepřidává `schvaleno`, `samoslouceno` ani `stop` a nic neslu
 
 Ověřeno (listopad 2026):
 
-- testy sloupců, kontraktu s bránou, převodu GraphQL, podpisu JWT, webhooků a šifrování;
-- GraphQL dotaz na skutečných repozitářích s bránou i bez ní: sloupce, čas samosloučení, spojení issue a PR;
+- testy sloupců, kontraktu s bránou, převodu GraphQL, podpisu JWT, ověření podpisu webhooků a šifrování;
+- synchronizace nad skutečnou migrací (SQLite místo D1, podvržený GitHub): instalace a odinstalace,
+  obnova po události, zápis chyby, ochrana novějšího snímku, mazání v cronu;
+- GraphQL dotaz na skutečných repozitářích s bránou i bez ní (tokenem vlastníka): sloupce, čas
+  samosloučení, spojení issue a PR;
 - `wrangler dev` s lokální D1: přihlašovací stránka, odmítnutí nepodepsaného webhooku, API jen s relací,
   ochrana proti CSRF, vykreslení nástěnky a formuláře, text z GitHubu se nevykonává jako HTML.
 
@@ -107,4 +115,7 @@ Neověřeno, dokud ho někdo nespustí naostro:
 
 - průvodce `nastav.mjs` (D1 na Cloudflaru, manifest GitHub App, tajemství, nasazení),
 - přihlášení přes GitHub a založení zadání skutečným tokenem uživatele,
-- příjem skutečných webhooků a cron na Cloudflaru.
+- příjem skutečných webhooků a cron na Cloudflaru,
+- GraphQL dotaz instalačním tokenem s omezenými oprávněními aplikace,
+- nový strojový verdikt v komentáři brány (`brana:verdikt`): zatím ho nezapsal žádný skutečný běh Actions,
+  nástěnka do té doby čte popis stavu, který ověřený je.

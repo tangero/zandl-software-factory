@@ -280,7 +280,7 @@ Actions potřebuje, aby brána slučovala tokenem samostatné GitHub App.
 | `.github/ISSUE_TEMPLATE/zadani.yml`, `.github/pull_request_template.md` | formulář zadání a šablona PR |
 | `nastaveni/onboarding.mjs` | průvodce nastavením |
 | `nastaveni/nastav.sh`, `stitky.json`, `ruleset.json` | štítky a zamčení hlavní větve |
-| `nastenka/` | volitelná nástěnka práce pro všechny repozitáře (Cloudflare Worker); do projektů se nekopíruje |
+| `nastenka/` | volitelná nástěnka práce pro všechny repozitáře (Cloudflare Worker); v projektech ji nepotřebujete |
 | `.github/workflows/testy-nastenky.yml` | testy nástěnky při její změně |
 
 **Bezpečnostní poznámky:**
