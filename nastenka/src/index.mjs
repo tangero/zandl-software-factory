@@ -132,6 +132,7 @@ export default {
     const metoda = request.method;
 
     if (cesta === '/app.js') return new Response(SKRIPT, { headers: { 'Content-Type': 'text/javascript; charset=utf-8', ...BEZPECNOSTNI_HLAVICKY } });
+    if (cesta === '/favicon.ico') return new Response(null, { status: 204 });
     if (cesta === '/styl.css') return new Response(STYL, { headers: { 'Content-Type': 'text/css; charset=utf-8', ...BEZPECNOSTNI_HLAVICKY } });
 
     const chybi = chybiNastaveni(env);

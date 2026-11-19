@@ -111,8 +111,11 @@ select, input, textarea { font: inherit; color: var(--text); background: var(--p
 .segment button[aria-pressed="true"] { background: var(--okraj); font-weight: 600; }
 .odkaz { font: inherit; background: none; border: 0; color: var(--akcent); cursor: pointer; padding: 0; }
 .hlaseni { margin: 12px 16px 0; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--varovani); color: var(--text); }
-.tabule { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(260px, 1fr); gap: 12px; padding: 16px; overflow-x: auto; align-items: start; }
-.sloupec { background: transparent; min-width: 0; }
+.tabule { display: flex; gap: 12px; padding: 16px; overflow-x: auto; align-items: flex-start; }
+.sloupec { flex: 1 1 240px; min-width: 210px; }
+/* Prázdný sloupec jen ukazuje, že existuje; místo nechá sloupcům s kartami. */
+.sloupec.prazdny { flex: 0 0 120px; min-width: 120px; }
+.sloupec.prazdny h2 { flex-direction: column; gap: 2px; }
 .sloupec h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--tlumeny); display: flex; justify-content: space-between; margin: 0 0 8px; }
 .sloupec[data-id="ceka"] h2 { color: var(--ceka); }
 .sloupec[data-id="samo"] h2 { color: var(--samo); }
@@ -140,7 +143,9 @@ dialog label.prepinac { display: flex; }
 .akce { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
 .chyba { color: var(--ceka); margin: 0; }
 @media (max-width: 700px) {
-  .tabule { grid-auto-flow: row; grid-auto-columns: auto; }
+  .tabule { flex-direction: column; align-items: stretch; }
+  .sloupec, .sloupec.prazdny { flex: none; min-width: 0; }
+  .sloupec.prazdny h2 { flex-direction: row; }
   .uzivatel { width: 100%; justify-content: space-between; }
 }
 `;
@@ -190,7 +195,7 @@ function vykresliSloupce(karty) {
   for (const s of stav.data.sloupce) {
     if (s.id === 'zamitnuto' && !$('zamitnute').checked) continue;
     const vSloupci = karty.filter((k) => k.sloupec === s.id);
-    const sekce = el('section', 'sloupec'); sekce.dataset.id = s.id;
+    const sekce = el('section', vSloupci.length ? 'sloupec' : 'sloupec prazdny'); sekce.dataset.id = s.id;
     const h = el('h2'); h.append(el('span', null, s.nazev), el('span', null, String(vSloupci.length)));
     const seznam = el('div', 'karty');
     if (!vSloupci.length) seznam.append(el('div', 'prazdne', '–'));

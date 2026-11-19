@@ -1,5 +1,5 @@
-# Testy nástěnky (složka nastenka/). V projektových repozitářích, kam se nástěnka nekopíruje,
-# se nikdy nespustí. Spouští kód z PR, proto jen se čtecím oprávněním a bez tajemství.
+# Testy nástěnky (složka nastenka/) včetně kontraktu s bránou, proto běží i při změně pravidla.mjs.
+# V projektovém repozitáři bez složky nastenka/ krok jen ohlásí, že není co testovat. Spouští kód z PR, proto jen se čtecím oprávněním a bez tajemství.
 name: Testy nástěnky
 
 on:
@@ -24,4 +24,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: node --test 'nastenka/test/*.test.mjs'
+      - name: Testy
+        run: |
+          if [ -d nastenka/test ]; then node --test 'nastenka/test/*.test.mjs'; else echo "Nástěnka v tomto repozitáři není."; fi

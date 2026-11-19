@@ -114,9 +114,14 @@ patří do `nevratne`.
 
 Štítky a zamčení založí `bash nastaveni/nastav.sh vlastnik/repozitar`.
 
-Tabuli, na které uvidíte, jak se práce posouvá, si založte ručně: *Projects → New project → Board*,
-propojte s repozitářem a zapněte vestavěné automatizace (nové issue → Todo, otevřený PR → In progress,
-sloučený PR → Done).
+Tabuli, na které uvidíte, jak se práce posouvá, máte dvě možnosti:
+
+- **Nástěnka ze šablony** (`nastenka/`, volitelná): jedna stránka pro všechny repozitáře vaší továrny,
+  sloupce podle verdiktu brány (co čeká na vás, co se sloučí samo a kdy) a zakládání zadání.
+  Nasadíte ji jednou na Cloudflare příkazem `node nastenka/nastav.mjs`; repozitáře připojíte instalací
+  její GitHub App. Do projektových repozitářů se nekopíruje. Návod: [nastenka/README.md](nastenka/README.md).
+- **GitHub Projects**: *Projects → New project → Board*, propojte s repozitářem a zapněte vestavěné
+  automatizace (nové issue → Todo, otevřený PR → In progress, sloučený PR → Done). Bránu nevidí.
 
 ### 3. Cíl a meze
 
@@ -275,6 +280,8 @@ Actions potřebuje, aby brána slučovala tokenem samostatné GitHub App.
 | `.github/ISSUE_TEMPLATE/zadani.yml`, `.github/pull_request_template.md` | formulář zadání a šablona PR |
 | `nastaveni/onboarding.mjs` | průvodce nastavením |
 | `nastaveni/nastav.sh`, `stitky.json`, `ruleset.json` | štítky a zamčení hlavní větve |
+| `nastenka/` | volitelná nástěnka práce pro všechny repozitáře (Cloudflare Worker); do projektů se nekopíruje |
+| `.github/workflows/testy-nastenky.yml` | testy nástěnky při její změně |
 
 **Bezpečnostní poznámky:**
 
