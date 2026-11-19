@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
   rozhodni, nactiKonfiguraci, odpovida, lhutaCesty, zaradZmenu, aktivniStop, precistReview,
-  ZNACKA_REVIEW, AUTOMATIKA, KONTROLA, STITEK, znackaSouhlasu,
+  ZNACKA_REVIEW, AUTOMATIKA, KONTROLA, STITEK, znackaSouhlasu, znackaVerdiktu, popisKontroly,
 } from '../pravidla.mjs';
 import { sestavKomentar, vytahniJson } from '../review.mjs';
 
@@ -261,4 +261,19 @@ test('požadované testy: selhání blokuje, běh i chybějící čekají', () =
 test('neutrální výsledek testu není úspěch', () => {
   const k = { ...konf, pozadovaneKontroly: ['Testy'] };
   assert.equal(rozhodni(vstup({ kontroly: [{ nazev: 'Testy', stav: 'completed', zaver: 'neutral' }] }), k).stav, 'blokovano');
+});
+
+// --- Výstup brány pro nástěnku ------------------------------------------------------------------
+
+test('popisKontroly: stav commitu a popis do 140 znaků', () => {
+  assert.deepEqual(popisKontroly({ stav: 'blokovano', duvody: ['Neprošly kontroly: Testy.'] }), { state: 'failure', popis: 'Zastaveno: Neprošly kontroly: Testy.' });
+  assert.equal(popisKontroly({ stav: 'ceka', potrebujeCloveka: true, duvody: ['x'] }).popis, 'Čeká na vlastníka: x');
+  assert.equal(popisKontroly({ stav: 'sloucit', zpusob: 'samoslouceni', duvody: ['x'] }).state, 'success');
+  assert.equal(popisKontroly({ stav: 'ceka', duvody: ['x'.repeat(300)] }).popis.length, 140);
+});
+
+test('znackaVerdiktu: JSON v HTML komentáři s commitem a časem samosloučení', () => {
+  const t = znackaVerdiktu({ stav: 'ceka', duvody: ['x'], sloucitPo: T0 }, HLAVA);
+  const data = JSON.parse(/<!-- brana:verdikt (.*) -->/.exec(t)[1]);
+  assert.deepEqual(data, { stav: 'ceka', zpusob: null, potrebujeCloveka: false, sloucitPo: '2026-11-18T10:00:00.000Z', hlava: HLAVA });
 });
