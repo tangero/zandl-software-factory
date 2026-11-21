@@ -6,8 +6,9 @@
 // a na GitHubu založí issue „Začínáme“ se zbytkem, který se nastavuje ručně.
 //
 // Bez otázek (pro skripty a testy):
-//   node nastaveni/onboarding.mjs --ano [--vlastnik LOGIN] [--review-url URL --review-model MODEL | --bez-review]
-// Klíč k API recenzenta se nikdy nepředává parametrem: zadáte ho do skrytého vstupu `gh secret set`.
+//   node nastaveni/onboarding.mjs --ano [--vlastnik LOGIN]
+//     [--review-url URL --review-model MODEL | --review-rezim claude-cli [--review-model MODEL] | --bez-review]
+// Klíč k API ani token předplatného se nikdy nepředává parametrem: zadáte ho do skrytého vstupu `gh secret set`.
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -166,17 +167,20 @@ async function krokReview(prostredi) {
     pozor('Přeskočeno (--bez-review). Bez review se nic nesamosloučí, jen PR se `schvaleno`.');
     return false;
   }
+  if (hodnota('--review-rezim') === 'claude-cli') return krokReviewClaude(prostredi);
   let url = hodnota('--review-url');
   let model = hodnota('--review-model');
   if (!url) {
     RECENZENTI.forEach((r, i) => console.log(`     ${i + 1}) ${r.nazev}`));
     console.log(`     ${RECENZENTI.length + 1}) jiný (zadám adresu)`);
+    console.log(`     ${RECENZENTI.length + 2}) Claude přes předplatné Pro/Max (bez klíče k API; agent pak nesmí být Claude)`);
     console.log(`     0) teď ne`);
     const volba = Number(await zeptej('   Volba', '0'));
     if (!volba) {
       pozor('Přeskočeno. Doplníte později: README, „Review druhým modelem“.');
       return false;
     }
+    if (volba === RECENZENTI.length + 2) return krokReviewClaude(prostredi);
     url = volba <= RECENZENTI.length ? RECENZENTI[volba - 1].url : await zeptej('   Adresa endpointu …/chat/completions');
   }
   if (!model) model = await zeptej('   Název modelu (přesně podle dokumentace výrobce)');
@@ -184,6 +188,7 @@ async function krokReview(prostredi) {
     pozor('Chybí adresa nebo model, review přeskočeno.');
     return false;
   }
+  sh('gh', ['variable', 'set', 'REVIEW_REZIM', '--repo', prostredi.repo, '--body', 'api']);
   sh('gh', ['variable', 'set', 'REVIEW_API_URL', '--repo', prostredi.repo, '--body', url]);
   sh('gh', ['variable', 'set', 'REVIEW_MODEL', '--repo', prostredi.repo, '--body', model]);
   ok(`recenzent ${model} přes ${url}`);
@@ -199,6 +204,32 @@ async function krokReview(prostredi) {
   rl.resume();
   if (r.status === 0) ok('klíč uložen');
   else pozor(`Uložení klíče selhalo. Zkuste: gh secret set REVIEW_API_KEY --repo ${prostredi.repo}`);
+  return true;
+}
+
+// Review přes předplatné Claude: Claude Code v Actions s tokenem z `claude setup-token`.
+async function krokReviewClaude(prostredi) {
+  console.log('   Recenzent poběží jako Claude Code s vaším předplatným Claude (Pro, Max, Team, Enterprise).');
+  pozor('Agent, který píše kód, pak nesmí být Claude. Kdo kód píše, ten ho nekontroluje.');
+  pozor('Token je vázaný na vaše předplatné a nejde omezit částkou. U veřejného repozitáře zvažte raději klíč k API.');
+  const model = hodnota('--review-model') ?? (bezOtazek ? '' : await zeptej('   Model (např. opus nebo sonnet, prázdné = výchozí)', ''));
+  sh('gh', ['variable', 'set', 'REVIEW_REZIM', '--repo', prostredi.repo, '--body', 'claude-cli']);
+  if (model) sh('gh', ['variable', 'set', 'REVIEW_MODEL', '--repo', prostredi.repo, '--body', model]);
+  else zkus('gh', ['variable', 'delete', 'REVIEW_MODEL', '--repo', prostredi.repo]);
+  ok(`recenzent Claude přes předplatné${model ? ` (${model})` : ''}`);
+  const maToken = zkus('gh', ['secret', 'list', '--repo', prostredi.repo]).stdout.includes('CLAUDE_CODE_OAUTH_TOKEN');
+  if (maToken && !(await potvrd('   Token CLAUDE_CODE_OAUTH_TOKEN už je nastavený. Přepsat?', false))) return true;
+  if (bezOtazek) {
+    pozor(`Token vyrobte příkazem \`claude setup-token\` a uložte: gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo ${prostredi.repo}`);
+    return true;
+  }
+  console.log('   V jiném terminálu spusťte `claude setup-token`, přihlaste se a zkopírujte vypsaný token.');
+  console.log('   Pak ho vložte sem (vstup je skrytý, token jde rovnou do GitHubu, průvodce ho nevidí):');
+  rl.pause();
+  const r = spawnSync('gh', ['secret', 'set', 'CLAUDE_CODE_OAUTH_TOKEN', '--repo', prostredi.repo], { stdio: 'inherit' });
+  rl.resume();
+  if (r.status === 0) ok('token uložen');
+  else pozor(`Uložení tokenu selhalo. Zkuste: gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo ${prostredi.repo}`);
   return true;
 }
 

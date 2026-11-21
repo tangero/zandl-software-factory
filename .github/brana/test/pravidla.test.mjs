@@ -6,7 +6,7 @@ import {
   rozhodni, nactiKonfiguraci, odpovida, lhutaCesty, zaradZmenu, aktivniStop, precistReview,
   ZNACKA_REVIEW, AUTOMATIKA, KONTROLA, STITEK, znackaSouhlasu,
 } from '../pravidla.mjs';
-import { sestavKomentar, vytahniJson } from '../review.mjs';
+import { sestavKomentar, vytahniJson, nastaveniReview, nazevRecenzenta, textZVystupuClaude } from '../review.mjs';
 
 const HLAVA = 'abc1234def5678abc1234def5678abc1234def56';
 const HODINA = 3600_000;
@@ -192,6 +192,42 @@ test('komentář review: neznámé zařazení je nevratné', () => {
 test('odpověď modelu bez JSON vede na „vyžaduje člověka“', () => {
   const telo = sestavKomentar(HLAVA, vytahniJson('Nevím.'), 'm');
   assert.equal(precistReview([{ autor: AUTOMATIKA, telo }], HLAVA).stav, 'clovek');
+});
+
+// --- Režim recenzenta ------------------------------------------------------------------------
+
+test('režim review: bez REVIEW_REZIM platí api a chce klíč, adresu a model', () => {
+  assert.deepEqual(nastaveniReview({}), { rezim: 'api', chybi: ['REVIEW_API_URL', 'REVIEW_API_KEY', 'REVIEW_MODEL'] });
+  assert.deepEqual(nastaveniReview({ REVIEW_API_URL: 'u', REVIEW_API_KEY: 'k', REVIEW_MODEL: 'm' }).chybi, []);
+});
+
+test('režim review: claude-cli chce jen token předplatného, model je volitelný', () => {
+  assert.deepEqual(nastaveniReview({ REVIEW_REZIM: 'claude-cli' }).chybi, ['CLAUDE_CODE_OAUTH_TOKEN']);
+  assert.deepEqual(nastaveniReview({ REVIEW_REZIM: 'claude-cli', CLAUDE_CODE_OAUTH_TOKEN: 't' }).chybi, []);
+});
+
+test('režim review: neznámý režim se nahlásí, nespadne potichu do api', () => {
+  const n = nastaveniReview({ REVIEW_REZIM: 'codex', REVIEW_API_URL: 'u', REVIEW_API_KEY: 'k', REVIEW_MODEL: 'm' });
+  assert.equal(n.chybi.length, 1);
+  assert.match(n.chybi[0], /neznámá hodnota/);
+});
+
+test('název recenzenta v komentáři podle režimu', () => {
+  assert.equal(nazevRecenzenta({ REVIEW_MODEL: 'gpt-x' }), 'gpt-x');
+  assert.equal(nazevRecenzenta({ REVIEW_REZIM: 'claude-cli' }), 'Claude přes předplatné');
+  assert.equal(nazevRecenzenta({ REVIEW_REZIM: 'claude-cli', REVIEW_MODEL: 'opus' }), 'Claude přes předplatné (opus)');
+});
+
+test('výstup Claude Code: úspěch vrátí text odpovědi', () => {
+  const vystup = JSON.stringify({ type: 'result', subtype: 'success', is_error: false, result: '{"verdikt":"bez vážných nálezů","zarazeni":"vratné"}' });
+  assert.equal(vytahniJson(textZVystupuClaude(vystup)).verdikt, 'bez vážných nálezů');
+});
+
+test('výstup Claude Code: chyba přihlášení vyhodí výjimku, review se nezapíše', () => {
+  const vystup = JSON.stringify({ type: 'result', subtype: 'success', is_error: true, result: 'Authentication error' });
+  assert.throws(() => textZVystupuClaude(vystup), /Authentication error/);
+  assert.throws(() => textZVystupuClaude(JSON.stringify({ subtype: 'error_max_turns', result: '' })), /error_max_turns/);
+  assert.throws(() => textZVystupuClaude('není json'), /nevrátil JSON/);
 });
 
 // --- Souhlas a stop --------------------------------------------------------------------------

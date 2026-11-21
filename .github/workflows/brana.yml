@@ -47,12 +47,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      # Jen v režimu předplatného Claude. Verze je pevná, aby se recenzent neměnil pod rukama;
+      # novější nastavíte proměnnou REVIEW_CLAUDE_VERZE.
+      - name: Instalace Claude Code
+        if: vars.REVIEW_REZIM == 'claude-cli'
+        env:
+          VERZE: ${{ vars.REVIEW_CLAUDE_VERZE || '2.1.330' }}
+        run: npm install --global "@anthropic-ai/claude-code@$VERZE"
       - name: Review
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          REVIEW_REZIM: ${{ vars.REVIEW_REZIM }}
           REVIEW_API_KEY: ${{ secrets.REVIEW_API_KEY }}
           REVIEW_API_URL: ${{ vars.REVIEW_API_URL }}
           REVIEW_MODEL: ${{ vars.REVIEW_MODEL }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           PR: ${{ github.event.pull_request.number || github.event.inputs.pr }}
         run: node .github/brana/review.mjs "$PR"
 
