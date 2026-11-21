@@ -1,19 +1,67 @@
 // Review druhým modelem. Pošle diff PR modelu jiného výrobce, než který kód napsal, a výsledek zapíše
 // jako komentář. Brána review uzná jen od automatiky (github-actions[bot]) a jen pro commit v řádku „Commit:“.
 //
-// Model se volá přes rozhraní kompatibilní s OpenAI Chat Completions, které nabízí většina výrobců
-// i agregátorů. Nastavení (Settings → Secrets and variables → Actions):
+// Recenzent se volá jedním ze dvou režimů (proměnná REVIEW_REZIM). Nastavení je v Settings → Secrets
+// and variables → Actions.
+//
+// api (výchozí): rozhraní kompatibilní s OpenAI Chat Completions, které nabízí většina výrobců
+// i agregátorů. Platí se za tokeny.
 //   secret   REVIEW_API_KEY   klíč k API
 //   variable REVIEW_API_URL   např. https://api.openai.com/v1/chat/completions
 //   variable REVIEW_MODEL     název modelu
 //
+// claude-cli: Claude Code v neinteraktivním režimu s tokenem předplatného Claude (Pro, Max, Team,
+// Enterprise). Token vyrobí `claude setup-token`. Hodí se, když kód píše agent jiného výrobce.
+//   variable REVIEW_REZIM            claude-cli
+//   secret   CLAUDE_CODE_OAUTH_TOKEN token předplatného
+//   variable REVIEW_MODEL            volitelně, např. opus nebo sonnet (prázdné = výchozí model)
+// Claude Code běží bez nástrojů a mimo repozitář: dostane jen text na vstupu a vrátí jen text.
+//
 // Spuštění: node .github/brana/review.mjs [číslo PR]   (bez čísla: otevřené PR bez platného review)
 
 import fs from 'node:fs';
+import os from 'node:os';
+import { spawnSync } from 'node:child_process';
 import { ZNACKA_REVIEW, precistReview } from './pravidla.mjs';
 import { REPO, vytvorApi, vsechny, otevrenePr } from './github.mjs';
 
 const MAX_ZNAKU_DIFFU = 150_000;
+const LIMIT_CLAUDE_MS = 10 * 60_000;
+
+// Který režim se použije a co mu chybí. Neznámý režim se hlásí jako chyba nastavení, ne tiše jako api.
+export function nastaveniReview(env) {
+  const rezim = (env.REVIEW_REZIM || 'api').trim();
+  if (rezim === 'api') {
+    return { rezim, chybi: ['REVIEW_API_URL', 'REVIEW_API_KEY', 'REVIEW_MODEL'].filter((p) => !env[p]) };
+  }
+  if (rezim === 'claude-cli') {
+    return { rezim, chybi: ['CLAUDE_CODE_OAUTH_TOKEN'].filter((p) => !env[p]) };
+  }
+  return { rezim, chybi: [`REVIEW_REZIM (neznámá hodnota „${rezim}“, povolené: api, claude-cli)`] };
+}
+
+// Název recenzenta do komentáře pod PR.
+export function nazevRecenzenta(env) {
+  const { rezim } = nastaveniReview(env);
+  if (rezim === 'claude-cli') return `Claude přes předplatné${env.REVIEW_MODEL ? ` (${env.REVIEW_MODEL})` : ''}`;
+  return env.REVIEW_MODEL;
+}
+
+// Výstup `claude -p --output-format json` je jeden objekt s polem result. Při chybě vyhodí výjimku,
+// aby se nezapsalo prázdné review (to by brána četla jako „nelze přečíst“ a zbytečně čekala).
+export function textZVystupuClaude(vystup) {
+  let data;
+  try {
+    data = JSON.parse(vystup);
+  } catch {
+    throw new Error(`Claude Code nevrátil JSON: ${String(vystup).slice(0, 300)}`);
+  }
+  if (data.is_error || (data.subtype && data.subtype !== 'success')) {
+    const druh = data.subtype && data.subtype !== 'success' ? ` (${data.subtype})` : '';
+    throw new Error(`Claude Code skončil chybou${druh}: ${String(data.result ?? '').slice(0, 300)}`);
+  }
+  return String(data.result ?? '');
+}
 let api;
 
 export function sestavKomentar(hlava, odpoved, model) {
@@ -49,7 +97,26 @@ export function vytahniJson(text) {
   }
 }
 
+// Claude Code bez nástrojů, s pracovním adresářem mimo repozitář (nenačte CLAUDE.md ani nastavení
+// projektu). Obsah PR jde přes stdin, takže ho žádný příkaz nevykoná a nenarazí na limit délky argumentů.
+function zeptejSeClaude(zadani, obsah) {
+  const argumenty = ['-p', '--output-format', 'json', '--tools', '', '--strict-mcp-config', '--system-prompt', zadani];
+  if (process.env.REVIEW_MODEL) argumenty.push('--model', process.env.REVIEW_MODEL);
+  const beh = spawnSync('claude', argumenty, {
+    input: obsah,
+    cwd: os.tmpdir(),
+    encoding: 'utf8',
+    timeout: LIMIT_CLAUDE_MS,
+    maxBuffer: 20 * 1024 * 1024,
+    env: { PATH: process.env.PATH, HOME: process.env.HOME, CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN },
+  });
+  if (beh.error) throw new Error(`Claude Code se nespustil: ${beh.error.message}`);
+  if (beh.status !== 0 && !beh.stdout) throw new Error(`Claude Code skončil s kódem ${beh.status}: ${(beh.stderr ?? '').slice(0, 300)}`);
+  return textZVystupuClaude(beh.stdout);
+}
+
 async function zeptejSeModelu(zadani, obsah) {
+  if (nastaveniReview(process.env).rezim === 'claude-cli') return zeptejSeClaude(zadani, obsah);
   const odpoved = await fetch(process.env.REVIEW_API_URL, {
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.REVIEW_API_KEY}`, 'Content-Type': 'application/json' },
@@ -95,14 +162,14 @@ async function zrecenzuj(cislo) {
   }
   await api(`repos/${REPO}/issues/${cislo}/comments`, {
     method: 'POST',
-    body: { body: sestavKomentar(hlava, odpoved, process.env.REVIEW_MODEL) },
+    body: { body: sestavKomentar(hlava, odpoved, nazevRecenzenta(process.env)) },
   });
   console.log(`PR #${cislo}: review zapsáno (${odpoved.verdikt ?? 'nečitelné'}, ${odpoved.zarazeni ?? 'nevratné'}).`);
 }
 
 async function main() {
   api = vytvorApi();
-  const chybi = ['REVIEW_API_URL', 'REVIEW_API_KEY', 'REVIEW_MODEL'].filter((p) => !process.env[p]);
+  const { chybi } = nastaveniReview(process.env);
   if (chybi.length) {
     // Bez recenzenta se nic nesamosloučí (brána čeká na review), ale workflow kvůli tomu nemá svítit červeně.
     console.log(`::warning::Review není nastavené (chybí ${chybi.join(', ')}). Samoslučování nepoběží, PR se sloučí jen se štítkem schvaleno. Návod: README, „Review druhým modelem“.`);

@@ -41,7 +41,8 @@ Budete potřebovat:
 - repozitář na GitHubu, ve kterém jste správce,
 - [GitHub CLI](https://cli.github.com) přihlášené s oprávněním pro workflow: `gh auth login`, pak `gh auth refresh -s workflow`,
 - Node.js 20 nebo novější,
-- klíč k API modelu, který bude dělat review. Má být od jiného výrobce, než jaký používá váš agent.
+- recenzenta: klíč k API modelu, nebo předplatné Claude (Pro, Max, Team, Enterprise). Recenzent má být
+  od jiného výrobce, než jaký používá váš agent.
 
 **1. Zkopírujte sadu do repozitáře.** Pro nový projekt klikněte nahoře na *Use this template → Create a new
 repository* a nový repozitář si naklonujte. Do existujícího repozitáře zkopírujte `.github/`, `nastaveni/`,
@@ -139,15 +140,42 @@ napíše „Čeká na vlastníka“, přidáte `schvaleno` a PR se sloučí.
 | kontroluje | model jiného výrobce | komentář review s verdiktem |
 | slučuje | brána (GitHub Actions) | jen podle pravidel |
 
-Review volá model přes rozhraní kompatibilní s OpenAI Chat Completions, které nabízí většina výrobců
-i agregátorů. Průvodce nabízí OpenAI, xAI, Moonshot, Mistral, DeepSeek a OpenRouter, nebo vlastní adresu.
-Ručně se review nastavuje v *Settings → Secrets and variables → Actions*:
+Recenzent má dva režimy. Vybírá je proměnná `REVIEW_REZIM`, ručně se všechno nastavuje
+v *Settings → Secrets and variables → Actions*.
+
+**Přes API (`api`, výchozí).** Review volá model přes rozhraní kompatibilní s OpenAI Chat Completions,
+které nabízí většina výrobců i agregátorů. Průvodce nabízí OpenAI, xAI, Moonshot, Mistral, DeepSeek
+a OpenRouter, nebo vlastní adresu. Platí se za tokeny a útratu omezíte limitem u výrobce.
 
 | typ | název | hodnota |
 |---|---|---|
+| variable | `REVIEW_REZIM` | `api` (nebo nenastaveno) |
 | secret | `REVIEW_API_KEY` | klíč k API recenzenta |
 | variable | `REVIEW_API_URL` | adresa endpointu `…/chat/completions` |
 | variable | `REVIEW_MODEL` | název modelu přesně podle dokumentace výrobce |
+
+**Přes předplatné Claude (`claude-cli`).** Review spustí v Actions Claude Code s vaším předplatným
+(Pro, Max, Team, Enterprise), bez klíče k API. Token vyrobíte na svém počítači příkazem
+`claude setup-token`. Claude Code běží bez nástrojů a mimo repozitář: diff dostane jen jako text a nic
+nespouští. Tuhle variantu volte, když kód píše agent jiného výrobce (třeba Codex). Píše-li kód Claude,
+recenzent přes předplatné Claude porušuje pravidlo „kdo píše, ten nekontroluje“.
+
+| typ | název | hodnota |
+|---|---|---|
+| variable | `REVIEW_REZIM` | `claude-cli` |
+| secret | `CLAUDE_CODE_OAUTH_TOKEN` | token z `claude setup-token` |
+| variable | `REVIEW_MODEL` | volitelně `opus` nebo `sonnet`; prázdné = výchozí model |
+| variable | `REVIEW_CLAUDE_VERZE` | volitelně verze Claude Code; prázdné = verze uvedená v `brana.yml` |
+
+Co zvážit u předplatného:
+
+- Token je vázaný na předplatné toho, kdo ho vyrobil, a nejde omezit částkou. Únik tokenu je proto
+  horší než únik klíče k API s limitem. U veřejného repozitáře dejte přednost klíči k API.
+- Review čerpá stejné limity jako vaše vlastní práce v Claude Code. Den s hodně PR vám je může vyčerpat.
+- Po změně plánu (třeba z Pro na Max) vyrobte token znovu, starý může přestat fungovat.
+- Předplatné ChatGPT pro Codex tu zatím podporované není. OpenAI ho v CI dovoluje jen přes soubor
+  `auth.json`, který se při každém běhu obnovuje a nesmí ho sdílet souběžné běhy. Brána ale běží
+  souběžně na více PR a každou hodinu z cronu.
 
 Zadání pro recenzenta je v `.github/brana/review-zadani.md`. Review se váže na konkrétní commit: každý
 nový commit dostane nové review a lhůta běží znovu. Bez nastaveného review se nic nesamosloučí. Brána pak
@@ -244,7 +272,9 @@ nevynucuje. Repozitář zveřejněte, nebo použijte GitHub Pro či Team.
 
 **Pod PR se neobjevilo review.** Podívejte se do *Actions → Brána → Review druhým modelem*. Žluté varování
 „Review není nastavené“ znamená chybějící proměnné nebo klíč (krok 4). Chyba 401 nebo 404 od modelu
-znamená špatný klíč, adresu nebo název modelu. Plánovaný běh každou hodinu review dohání.
+znamená špatný klíč, adresu nebo název modelu. V režimu `claude-cli` hláška „Failed to authenticate“
+znamená neplatný nebo prošlý token, vyrobte nový přes `claude setup-token`. Plánovaný běh každou hodinu
+review dohání.
 
 **Brána píše „GitHub sloučení odmítl (405)“.** Ruleset nepustil sloučení, obvykle proto, že mezitím přišel
 nový commit. Brána to zkusí při dalším běhu.
